@@ -5,6 +5,12 @@ export enum TradeStatus {
   CLOSED = 'CLOSED'
 }
 
+export interface User {
+  id: string;
+  name: string;
+  lastLogin: number;
+}
+
 export interface InvestmentPlan {
   id: string;
   symbol: string;
@@ -14,7 +20,7 @@ export interface InvestmentPlan {
   stopLoss: number;
   targetPrice: number;
   positionSize: string;
-  psychologicalState: string; // 情绪状态：冷静、兴奋、焦虑、恐惧
+  psychologicalState: string;
   reasoning: string;
   createdAt: number;
   status: TradeStatus;

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { InvestmentPlan, TradeStatus } from './types';
+import { InvestmentPlan, TradeStatus, User } from './types';
 import PlanForm from './components/PlanForm';
 import ReviewModal from './components/ReviewModal';
 import HistoryDetailsModal from './components/HistoryDetailsModal';
@@ -33,12 +33,14 @@ const ZEN_SUBTITLES = [
 ];
 
 const App: React.FC = () => {
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [usernameInput, setUsernameInput] = useState('');
   const [plans, setPlans] = useState<InvestmentPlan[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [reviewingPlan, setReviewingPlan] = useState<InvestmentPlan | null>(null);
   const [viewingHistoryPlan, setViewingHistoryPlan] = useState<InvestmentPlan | null>(null);
 
-  // 随机选择一条心法和副标题，仅在页面加载时执行一次
+  // 随机心法与描述
   const { currentQuote, currentSubtitle } = useMemo(() => {
     const quoteIndex = Math.floor(Math.random() * ZEN_QUOTES.length);
     const subtitleIndex = Math.floor(Math.random() * ZEN_SUBTITLES.length);
@@ -46,17 +48,63 @@ const App: React.FC = () => {
       currentQuote: ZEN_QUOTES[quoteIndex],
       currentSubtitle: ZEN_SUBTITLES[subtitleIndex]
     };
+  }, [currentUser]); // 用户切换时也刷新一下心情
+
+  // 1. 处理登录
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!usernameInput.trim()) return;
+    
+    const usersJson = localStorage.getItem('zen_invest_users') || '[]';
+    const users: User[] = JSON.parse(usersJson);
+    let user = users.find(u => u.name === usernameInput.trim());
+    
+    if (!user) {
+      user = { id: Date.now().toString(), name: usernameInput.trim(), lastLogin: Date.now() };
+      users.push(user);
+    } else {
+      user.lastLogin = Date.now();
+    }
+    
+    localStorage.setItem('zen_invest_users', JSON.stringify(users));
+    setCurrentUser(user);
+    localStorage.setItem('zen_invest_last_user', user.id);
+  };
+
+  // 2. 自动恢复上次登录状态
+  useEffect(() => {
+    const lastUserId = localStorage.getItem('zen_invest_last_user');
+    if (lastUserId) {
+      const users: User[] = JSON.parse(localStorage.getItem('zen_invest_users') || '[]');
+      const user = users.find(u => u.id === lastUserId);
+      if (user) setCurrentUser(user);
+    }
   }, []);
 
-  // 数据持久化
+  // 3. 根据当前用户加载数据
   useEffect(() => {
-    const saved = localStorage.getItem('zen_invest_plans');
-    if (saved) setPlans(JSON.parse(saved));
-  }, []);
+    if (currentUser) {
+      const saved = localStorage.getItem(`zen_invest_plans_${currentUser.id}`);
+      if (saved) {
+        setPlans(JSON.parse(saved));
+      } else {
+        setPlans([]); // 新用户初始化为空
+      }
+    }
+  }, [currentUser]);
 
+  // 4. 数据保存（用户维度隔离）
   useEffect(() => {
-    localStorage.setItem('zen_invest_plans', JSON.stringify(plans));
-  }, [plans]);
+    if (currentUser) {
+      localStorage.setItem(`zen_invest_plans_${currentUser.id}`, JSON.stringify(plans));
+    }
+  }, [plans, currentUser]);
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    localStorage.removeItem('zen_invest_last_user');
+    setPlans([]);
+  };
 
   const addPlan = (plan: InvestmentPlan) => {
     setPlans([plan, ...plans]);
@@ -76,11 +124,9 @@ const App: React.FC = () => {
 
   const closedPlans = plans.filter(p => p.status === TradeStatus.CLOSED);
   
-  // 计算权益曲线：将单笔盈亏累加
   const chartData = useMemo(() => {
     let cumulative = 0;
     const sorted = [...closedPlans].sort((a, b) => a.createdAt - b.createdAt);
-    // 增加一个起点 0
     const data = [{ displayDate: '起点', cumulative: 0 }];
     sorted.forEach(p => {
       cumulative += (p.profitAndLoss || 0);
@@ -105,24 +151,65 @@ const App: React.FC = () => {
     const reward = isBuy ? plan.targetPrice - plan.entryPrice : plan.entryPrice - plan.targetPrice;
     const risk = isBuy ? plan.entryPrice - plan.stopLoss : plan.stopLoss - plan.entryPrice;
     const rr = risk > 0 ? (reward / risk).toFixed(1) : '∞';
-    const rewardPct = ((reward / plan.entryPrice) * 100).toFixed(1);
-    return { rr, rewardPct };
+    return { rr };
   };
 
+  // 未登录状态展示“修行门扉”
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen bg-[#FDF8FB] flex items-center justify-center p-6">
+        <div className="max-w-md w-full bg-white p-10 rounded-[48px] cute-shadow text-center space-y-8 animate-in zoom-in duration-500">
+          <div className="space-y-2">
+            <div className="w-20 h-20 bg-gradient-to-br from-pink-400 to-pink-500 rounded-3xl mx-auto flex items-center justify-center text-white text-4xl shadow-xl shadow-pink-100">🌸</div>
+            <h1 className="text-3xl font-black text-pink-500 tracking-tighter pt-4">ZenInvest</h1>
+            <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">开启你的投资修行之路</p>
+          </div>
+          
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div className="text-left">
+              <label className="text-xs font-black text-gray-400 uppercase ml-2 mb-2 block">修行者代号</label>
+              <input 
+                autoFocus
+                type="text"
+                placeholder="请输入你的代号 (如: 牛散小白)"
+                className="w-full p-4 bg-gray-50 border-2 border-transparent focus:border-pink-300 focus:bg-white rounded-2xl outline-none transition-all font-bold text-center"
+                value={usernameInput}
+                onChange={e => setUsernameInput(e.target.value)}
+              />
+            </div>
+            <button 
+              type="submit"
+              className="w-full py-4 bg-pink-400 hover:bg-pink-500 text-white font-black rounded-2xl shadow-lg shadow-pink-100 transition-all transform active:scale-95"
+            >
+              进入禅定状态 🚀
+            </button>
+          </form>
+          
+          <p className="text-[10px] text-gray-300 leading-relaxed italic">
+            "每一个伟大的交易者，最初都只是一名守纪律的修行者。"
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // 已登录状态展示主界面
   return (
     <div className="min-h-screen bg-[#FDF8FB] pb-24 font-sans text-gray-700 selection:bg-pink-100">
-      {/* Header */}
       <header className="bg-white/80 backdrop-blur-md border-b border-pink-50 p-6 flex justify-between items-center sticky top-0 z-40">
         <div className="flex items-center gap-3">
           <div className="bg-gradient-to-br from-pink-400 to-pink-500 w-10 h-10 rounded-2xl flex items-center justify-center text-white text-xl shadow-lg shadow-pink-100">🌸</div>
           <div>
-            <h1 className="text-xl font-black text-pink-500 tracking-tight">ZenInvest</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-black text-pink-500 tracking-tight">ZenInvest</h1>
+              <span className="text-[10px] bg-blue-50 text-blue-400 px-2 py-0.5 rounded-full font-black">@{currentUser.name}</span>
+            </div>
             <p className="text-[9px] text-gray-400 font-black uppercase tracking-widest">{currentSubtitle}</p>
           </div>
         </div>
         
         <div className="flex items-center gap-4">
-          <div className="text-right">
+          <div className="text-right hidden sm:block">
             <p className="text-[9px] text-gray-400 font-black uppercase">本期胜率</p>
             <p className="font-black text-pink-500 text-lg leading-none mt-1">{winRate}%</p>
           </div>
@@ -132,6 +219,15 @@ const App: React.FC = () => {
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" />
+            </svg>
+          </button>
+          <button 
+            onClick={handleLogout}
+            className="w-10 h-10 rounded-2xl bg-gray-50 text-gray-400 flex items-center justify-center hover:bg-red-50 hover:text-red-400 transition-all active:scale-95"
+            title="退出修行"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
             </svg>
           </button>
         </div>
@@ -214,7 +310,7 @@ const App: React.FC = () => {
               </div>
             )}
             {plans.filter(p => p.status !== TradeStatus.CLOSED).map(plan => {
-              const { rr, rewardPct } = calculateRR(plan);
+              const { rr } = calculateRR(plan);
               return (
                 <div key={plan.id} className="bg-white p-6 rounded-[32px] cute-shadow border border-gray-50 flex flex-col sm:flex-row justify-between items-center gap-4 border-l-[12px] border-l-blue-200 hover:scale-[1.01] transition-transform relative group">
                   <div className="flex-1 text-center sm:text-left">
@@ -253,7 +349,7 @@ const App: React.FC = () => {
           </div>
         </section>
 
-        {/* History / Closed Trades */}
+        {/* History */}
         <section className="pt-8">
            <div className="flex items-center justify-between mb-8 px-2">
             <h2 className="text-xl font-black text-gray-800">修行成果 (历史)</h2>
@@ -284,14 +380,8 @@ const App: React.FC = () => {
                     </div>
                   </div>
                   
-                  <div className="p-6 bg-gray-50/50 rounded-[32px] border border-gray-100 mb-6 group-hover:bg-white transition-colors">
-                    <div className="flex items-center gap-2 mb-2">
-                       <span className="text-xs">📜</span>
-                       <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">自省笔记</span>
-                    </div>
-                    <p className="text-sm text-gray-600 leading-relaxed font-medium">
-                      {plan.reviewNotes || "这笔交易没有留下感悟，建议下次认真复盘。"}
-                    </p>
+                  <div className="p-6 bg-gray-50/50 rounded-[32px] border border-gray-100 mb-6 group-hover:bg-white transition-colors text-sm text-gray-600 italic font-medium">
+                     {plan.reviewNotes || "未留下复盘感悟。"}
                   </div>
                   
                   <div className="flex justify-between items-center text-xs">
@@ -311,17 +401,11 @@ const App: React.FC = () => {
                 </div>
               );
             })}
-            
-            {closedPlans.length === 0 && (
-              <div className="text-center py-12 text-gray-300 font-bold italic">
-                暂时没有已结单的记录，等待你的第一次修行成果...
-              </div>
-            )}
           </div>
         </section>
       </main>
 
-      {/* Overlays */}
+      {/* Modals */}
       {showForm && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 z-50">
           <div className="w-full max-w-lg animate-in zoom-in duration-300">
@@ -329,7 +413,6 @@ const App: React.FC = () => {
           </div>
         </div>
       )}
-
       {reviewingPlan && (
         <ReviewModal 
           plan={reviewingPlan} 
@@ -337,7 +420,6 @@ const App: React.FC = () => {
           onCancel={() => setReviewingPlan(null)} 
         />
       )}
-
       {viewingHistoryPlan && (
         <HistoryDetailsModal 
           plan={viewingHistoryPlan} 

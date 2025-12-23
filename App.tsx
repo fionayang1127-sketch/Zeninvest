@@ -12,34 +12,29 @@ const App: React.FC = () => {
   const [reviewingPlan, setReviewingPlan] = useState<InvestmentPlan | null>(null);
   const [viewingHistoryPlan, setViewingHistoryPlan] = useState<InvestmentPlan | null>(null);
   
-  // 核心逻辑：初始状态就尝试读取环境变量
-  const [isAiActive, setIsAiActive] = useState<boolean>(() => {
-    return !!(typeof process !== 'undefined' && process.env.API_KEY);
-  });
-
-  const checkKeyStatus = async () => {
-    // 再次确认环境
-    const envKey = typeof process !== 'undefined' ? process.env.API_KEY : undefined;
-    if (envKey) {
-      setIsAiActive(true);
-      return;
-    }
-
-    // 检查 AI Studio 环境
-    if (window.aistudio && typeof window.aistudio.hasSelectedApiKey === 'function') {
-      const hasKey = await window.aistudio.hasSelectedApiKey();
-      setIsAiActive(hasKey);
-    }
-  };
+  // 状态：AI 导师是否已连接
+  const [isAiActive, setIsAiActive] = useState<boolean>(false);
 
   useEffect(() => {
-    checkKeyStatus();
-    // 如果还没激活，则持续轮询（应对异步加载）
-    if (!isAiActive) {
-      const timer = setInterval(checkKeyStatus, 3000);
-      return () => clearInterval(timer);
-    }
-  }, [isAiActive]);
+    const checkKey = async () => {
+      // 1. 优先检查 Vercel 注入的环境变量
+      const envKey = typeof process !== 'undefined' ? process.env.API_KEY : undefined;
+      if (envKey && envKey.length > 5) {
+        setIsAiActive(true);
+        return;
+      }
+
+      // 2. 备选检查 AI Studio 环境
+      if (window.aistudio && typeof window.aistudio.hasSelectedApiKey === 'function') {
+        const hasKey = await window.aistudio.hasSelectedApiKey();
+        setIsAiActive(hasKey);
+      }
+    };
+
+    checkKey();
+    const timer = setInterval(checkKey, 2000); // 持续检测，确保即时生效
+    return () => clearInterval(timer);
+  }, []);
 
   const handleConnectAi = async () => {
     if (window.aistudio && typeof window.aistudio.openSelectKey === 'function') {
@@ -50,11 +45,11 @@ const App: React.FC = () => {
         console.error("授权失败", e);
       }
     } else {
-      alert("✨ 导师贴士：\n\n你已经在 Vercel 配置了 API_KEY！请确保你已经执行了 'Redeploy'（重新部署），这样最新的代码才能读取到这把钥匙。");
+      alert("✨ 导师贴士：\n\n请点击 Vercel 部署页面的 'Create Deployment' 重新部署。一旦部署完成，这个按钮就会自动消失！");
     }
   };
 
-  // 数据持久化
+  // 本地存储
   useEffect(() => {
     const saved = localStorage.getItem('zen_invest_plans');
     if (saved) setPlans(JSON.parse(saved));
@@ -95,7 +90,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#FDF8FB] pb-24 font-sans selection:bg-pink-100">
+    <div className="min-h-screen bg-[#FDF8FB] pb-24 font-sans">
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-md border-b border-pink-50 p-6 flex justify-between items-center sticky top-0 z-40">
         <div className="flex items-center gap-3">
@@ -103,7 +98,7 @@ const App: React.FC = () => {
             <h1 className="text-2xl font-extrabold text-pink-500 tracking-tight flex items-center gap-2">
               ZenInvest <span className="text-xl">🌸</span>
             </h1>
-            <p className="text-[10px] text-gray-400 mt-0.5 font-black uppercase tracking-widest">每一笔交易都是修行</p>
+            <p className="text-[10px] text-gray-400 mt-0.5 font-black uppercase tracking-widest">每一笔交易都是一次内心的修行</p>
           </div>
           {!isAiActive && (
              <button 
@@ -141,7 +136,7 @@ const App: React.FC = () => {
           <div className="bg-white p-6 rounded-[32px] cute-shadow flex flex-col justify-center border border-pink-50/50">
             <h4 className="text-gray-400 text-xs font-black uppercase tracking-widest flex justify-between items-center mb-4">
               <span>心路曲线</span>
-              <span className="text-[10px] bg-blue-50 text-blue-400 px-3 py-1 rounded-full italic font-bold">EQUITY</span>
+              <span className="text-[10px] bg-blue-50 text-blue-400 px-3 py-1 rounded-full italic font-bold uppercase">Equity Curve</span>
             </h4>
             <div className="h-32 w-full">
               <ResponsiveContainer width="100%" height="100%">
@@ -164,29 +159,23 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        {/* AI Key Missing Alert - Only show if truly missing */}
+        {/* AI Key Status Hint - Only show if not fully active */}
         {!isAiActive && (
           <div className="bg-amber-50 p-5 rounded-[24px] border border-amber-100 flex flex-col sm:flex-row items-center justify-between gap-4 animate-in fade-in">
             <div className="flex items-center gap-4 text-center sm:text-left">
               <span className="text-3xl">🧩</span>
               <div>
-                <p className="text-sm text-amber-800 font-bold">AI 导师尚未就位</p>
+                <p className="text-sm text-amber-800 font-bold">钥匙已就位，等待重新部署</p>
                 <p className="text-[11px] text-amber-600 mt-1 leading-relaxed">
-                  检测到钥匙尚未通电。配置好环境变量后，请记得点击 Vercel 的 <b>Redeploy</b> 按钮。
+                  请点击 Vercel 后台的 <b>Create Deployment</b> 按钮。只需一次，AI 导师便会永久激活。
                 </p>
               </div>
             </div>
-            <button 
-              onClick={handleConnectAi}
-              className="whitespace-nowrap bg-amber-500 hover:bg-amber-600 text-white text-xs px-6 py-2.5 rounded-2xl font-black shadow-lg shadow-amber-200 transition-all active:scale-95"
-            >
-              了解如何激活
-            </button>
           </div>
         )}
 
         {/* Investment Rules Reminder */}
-        <div className="bg-white p-5 rounded-[24px] border border-blue-50 shadow-sm flex items-start gap-4 hover:border-pink-100 transition-colors">
+        <div className="bg-white p-5 rounded-[24px] border border-blue-50 shadow-sm flex items-start gap-4">
           <div className="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center flex-shrink-0 text-xl">🧘‍♂️</div>
           <div>
             <p className="text-[10px] text-blue-400 font-black uppercase tracking-widest mb-1">牛散心法</p>
@@ -213,13 +202,13 @@ const App: React.FC = () => {
                 <div className="text-6xl animate-bounce">🌱</div>
                 <div className="space-y-2">
                   <p className="text-lg font-black text-gray-700">虚位以待</p>
-                  <p className="text-xs text-gray-400 max-w-[200px] mx-auto leading-relaxed">冷静观察，等待属于你的出出手，不要为了交易而交易。</p>
+                  <p className="text-xs text-gray-400 max-w-[200px] mx-auto leading-relaxed">冷静观察，等待属于你的出手机会，不要为了交易而交易。</p>
                 </div>
                 <button 
                   onClick={() => setShowForm(true)}
                   className="bg-blue-500 text-white px-10 py-4 rounded-[20px] font-black hover:bg-blue-600 transition-all shadow-xl shadow-blue-100 active:scale-95"
                 >
-                  开启第一笔计划
+                  开启第一笔修行计划
                 </button>
               </div>
             )}
@@ -234,14 +223,14 @@ const App: React.FC = () => {
                       </span>
                       <h3 className="font-black text-xl text-gray-800">{plan.symbol}</h3>
                       <div className="flex items-center gap-1 bg-blue-50 text-blue-500 text-[10px] px-3 py-1 rounded-full font-black">
-                        <span>ODDS</span>
+                        <span>赔率</span>
                         <span>1:{rr}</span>
                       </div>
                     </div>
                     <div className="flex flex-wrap gap-x-6 gap-y-2 text-xs font-bold">
-                      <div className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-gray-300"></span><span className="text-gray-400">ENTRY</span> <span className="text-gray-700">{plan.entryPrice}</span></div>
-                      <div className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-red-400"></span><span className="text-gray-400">STOP</span> <span className="text-red-400">{plan.stopLoss}</span></div>
-                      <div className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-green-400"></span><span className="text-gray-400">TARGET</span> <span className="text-green-500">{plan.targetPrice}</span> <span className="text-[10px] text-green-300">(+{rewardPct}%)</span></div>
+                      <div className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-gray-300"></span><span className="text-gray-400 uppercase">Entry</span> <span className="text-gray-700">{plan.entryPrice}</span></div>
+                      <div className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-red-400"></span><span className="text-gray-400 uppercase">Stop</span> <span className="text-red-400">{plan.stopLoss}</span></div>
+                      <div className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-green-400"></span><span className="text-gray-400 uppercase">Target</span> <span className="text-green-500">{plan.targetPrice}</span> <span className="text-[10px] text-green-300">(+{rewardPct}%)</span></div>
                     </div>
                   </div>
                   <div className="w-full sm:w-auto">
@@ -308,18 +297,18 @@ const App: React.FC = () => {
                   
                   <div className="flex flex-wrap justify-between items-center text-[10px] font-black uppercase tracking-widest text-gray-400 relative z-10">
                     <div className="flex gap-6">
-                      <div className="flex flex-col"><span className="opacity-50 mb-0.5">Entry</span><span className="text-gray-600 text-xs">{plan.entryPrice}</span></div>
-                      <div className="flex flex-col"><span className="opacity-50 mb-0.5">Exit</span><span className="text-gray-600 text-xs">{plan.exitPrice}</span></div>
+                      <div className="flex flex-col"><span className="opacity-50 mb-0.5 uppercase">Entry</span><span className="text-gray-600 text-xs">{plan.entryPrice}</span></div>
+                      <div className="flex flex-col"><span className="opacity-50 mb-0.5 uppercase">Exit</span><span className="text-gray-600 text-xs">{plan.exitPrice}</span></div>
                     </div>
                     <div className="flex items-center gap-3 mt-4 sm:mt-0">
-                      <div className="px-3 py-1 bg-gray-100 text-gray-500 rounded-full">
+                      <div className="px-3 py-1 bg-gray-100 text-gray-500 rounded-full text-[10px]">
                         {plan.strategy}
                       </div>
                       <button 
                         onClick={() => setViewingHistoryPlan(plan)}
                         className="text-blue-500 hover:text-pink-500 transition-colors font-black underline underline-offset-4"
                       >
-                        Details
+                        详情
                       </button>
                     </div>
                   </div>

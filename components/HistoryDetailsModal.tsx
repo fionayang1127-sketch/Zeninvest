@@ -29,52 +29,43 @@ const HistoryDetailsModal: React.FC<HistoryDetailsModalProps> = ({ plan, onClose
         </div>
         
         <div className="text-center mb-6">
-          <span className="text-5xl">🏆</span>
-          <h2 className="text-2xl font-black text-gray-700 mt-4">{plan.symbol} 详情</h2>
-          <p className="text-xs text-gray-400">{new Date(plan.createdAt).toLocaleString()}</p>
+          <span className="text-5xl">📓</span>
+          <h2 className="text-2xl font-black text-gray-700 mt-4">{plan.symbol} 修行报告</h2>
+          <p className="text-[10px] text-gray-400 uppercase font-black tracking-widest mt-1">
+            {new Date(plan.createdAt).toLocaleString()}
+          </p>
         </div>
 
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
-            <div className="bg-gray-50 p-3 rounded-2xl">
-              <p className="text-[10px] text-gray-400 font-bold uppercase">策略 / 初始赔率</p>
-              <p className="text-sm font-bold text-blue-500">{plan.strategy} (1:{calculatePlannedRR()})</p>
+            <div className="bg-blue-50/50 p-4 rounded-3xl">
+              <p className="text-[10px] text-blue-400 font-bold uppercase mb-1">入场理由</p>
+              <p className="text-sm font-bold text-gray-700 truncate">{plan.reasoning}</p>
             </div>
-            <div className="bg-gray-50 p-3 rounded-2xl">
-              <p className="text-[10px] text-gray-400 font-bold uppercase">入场心态</p>
-              <p className="text-sm font-bold text-pink-400">{plan.psychologicalState}</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-gray-50 p-3 rounded-2xl">
-              <p className="text-[10px] text-gray-400">入场价格</p>
-              <p className="font-bold text-gray-700">{plan.entryPrice}</p>
-            </div>
-            <div className="bg-gray-50 p-3 rounded-2xl">
-              <p className="text-[10px] text-gray-400">离场价格</p>
-              <p className="font-bold text-gray-700">{plan.exitPrice}</p>
+            <div className="bg-pink-50/50 p-4 rounded-3xl">
+              <p className="text-[10px] text-pink-400 font-bold uppercase mb-1">当时心态</p>
+              <p className="text-sm font-bold text-gray-700">{plan.psychologicalState}</p>
             </div>
           </div>
 
-          <div className={`p-4 rounded-2xl text-center ${ (plan.profitAndLoss || 0) >= 0 ? 'bg-green-50 text-green-600 border border-green-100' : 'bg-red-50 text-red-500 border border-red-100'}`}>
-            <p className="text-xs opacity-70 font-bold">最终修行成果</p>
-            <p className="text-3xl font-black">¥ {(plan.profitAndLoss || 0).toFixed(2)}</p>
-            <p className="text-sm font-bold mt-1">幅度: {plPct}%</p>
+          <div className={`p-6 rounded-[32px] text-center border-2 ${ (plan.profitAndLoss || 0) >= 0 ? 'bg-green-50 text-green-600 border-green-100' : 'bg-red-50 text-red-500 border-red-100'}`}>
+            <p className="text-[10px] opacity-70 font-black uppercase tracking-widest mb-1">最终损益状况</p>
+            <p className="text-4xl font-black">¥ {(plan.profitAndLoss || 0).toFixed(2)}</p>
+            <p className="text-sm font-black mt-1">收益率: {plPct}%</p>
           </div>
 
-          <div className="bg-pink-50/50 p-4 rounded-3xl border border-pink-100 shadow-inner">
-            <p className="text-xs font-bold text-pink-400 mb-2 flex items-center gap-1">
-              <span>✨</span> AI 的深度叮嘱
+          <div className="bg-gray-50 p-6 rounded-[32px] border border-gray-100 shadow-inner">
+            <p className="text-[10px] font-black text-gray-400 mb-2 uppercase flex items-center gap-1">
+              <span>✍️</span> 我的修行自省
             </p>
-            <p className="text-sm text-gray-600 leading-relaxed italic">
-              {plan.aiAnalysis}
+            <p className="text-sm text-gray-600 leading-relaxed italic font-medium">
+              {plan.reviewNotes}
             </p>
           </div>
 
           <button 
             onClick={onClose}
-            className="w-full py-4 bg-pink-400 text-white rounded-2xl font-bold shadow-lg shadow-pink-100 mt-4 hover:bg-pink-500 transition-all transform active:scale-95"
+            className="w-full py-4 bg-pink-400 text-white rounded-2xl font-black shadow-lg shadow-pink-100 mt-4 hover:bg-pink-500 transition-all transform active:scale-95"
           >
             收悉，继续前进
           </button>

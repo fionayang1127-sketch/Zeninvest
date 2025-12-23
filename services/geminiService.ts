@@ -3,40 +3,38 @@ import { GoogleGenAI } from "@google/genai";
 import { InvestmentPlan } from "../types";
 
 export async function analyzeTradeReview(plan: InvestmentPlan, currentDate: string): Promise<string> {
-  // 检查 API Key 是否存在
-  const apiKey = typeof process !== 'undefined' ? process.env.API_KEY : undefined;
+  // 直接尝试获取环境变量，如果失败则说明需要用户手动触发授权（通过 window.aistudio）
+  const apiKey = process.env.API_KEY;
   
   if (!apiKey) {
-    console.warn("未检测到 API_KEY，请在 Vercel 环境变量中配置。");
-    return "AI 导师提示：由于未配置 API Key，暂时无法提供深度复盘。请检查应用配置。";
+    throw new Error("API_KEY_MISSING");
   }
 
-  // 每次调用时初始化，确保获取最新的环境变量
+  // 每次调用时创建新实例，确保使用最新的 Key
   const ai = new GoogleGenAI({ apiKey });
 
   const prompt = `
-    你是一位经历了多轮牛熊市的顶级职业投资人（超级牛散）。请基于以下交易计划和实际结果进行深度复盘分析：
+    你是一位经历了多轮牛熊市、内心极其强大的超级牛散投资导师。
+    你的学生刚刚完成了一笔交易，请根据以下数据进行犀利且充满智慧的复盘：
     
-    【当前分析日期】: ${currentDate}
-    【交易品种】: ${plan.symbol} (${plan.side === 'BUY' ? '做多' : '做空'})
+    【交易日期】: ${currentDate}
+    【标的】: ${plan.symbol} (${plan.side === 'BUY' ? '做多' : '做空'})
     【初始计划】:
     - 理由: ${plan.reasoning}
-    - 入场价格: ${plan.entryPrice}
-    - 止损: ${plan.stopLoss}
-    - 目标价: ${plan.targetPrice}
+    - 入场: ${plan.entryPrice} | 止损: ${plan.stopLoss} | 目标: ${plan.targetPrice}
     - 入场心态: ${plan.psychologicalState}
     
     【实际结果】:
-    - 离场价格: ${plan.exitPrice}
-    - 最终盈亏金额: ${plan.profitAndLoss}
-    - 投资者自述反思: ${plan.reviewNotes}
+    - 离场价: ${plan.exitPrice}
+    - 盈亏金额: ${plan.profitAndLoss}
+    - 学生的自省: ${plan.reviewNotes}
     
-    请作为长辈给出指导：
-    1. 策略执行力评价。
-    2. 针对入场心态和反思给出建议。
-    3. 下次遇到类似情况的改进点。
+    请按以下三个维度点评（总共不超过200字）：
+    1. 【执行力检查】：是否做到了知行合一？
+    2. 【心理博弈】：针对其心态（如${plan.psychologicalState}）给出修行建议。
+    3. 【老散寄语】：一句话总结这笔交易的进阶点。
     
-    要求：200字以内，语气专业且温和。
+    语气：稳健、睿智、温和但有力量。
   `;
 
   try {
@@ -45,13 +43,15 @@ export async function analyzeTradeReview(plan: InvestmentPlan, currentDate: stri
       contents: prompt,
       config: {
         temperature: 0.7,
-        topP: 0.95,
       },
     });
     
-    return response.text || "复盘完成，但 AI 似乎陷入了沉思，没能给出具体文字。";
-  } catch (error) {
-    console.error("Gemini AI Analysis Error:", error);
-    return "AI 导师正在闭关（可能是网络或 Key 权限问题），建议稍后在‘修行历程’中查看详情。";
+    return response.text || "这笔交易让我也陷入了深思，你做到了独立思考，这就是进步。";
+  } catch (error: any) {
+    console.error("Gemini Error:", error);
+    if (error.message?.includes("Requested entity was not found")) {
+      throw new Error("API_KEY_INVALID");
+    }
+    return "AI 导师正在复盘其他选手的单子，请稍后再看。";
   }
 }

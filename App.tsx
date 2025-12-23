@@ -11,6 +11,26 @@ const App: React.FC = () => {
   const [showForm, setShowForm] = useState(false);
   const [reviewingPlan, setReviewingPlan] = useState<InvestmentPlan | null>(null);
   const [viewingHistoryPlan, setViewingHistoryPlan] = useState<InvestmentPlan | null>(null);
+  const [isAiActive, setIsAiActive] = useState(true);
+
+  // 检查 API Key 状态
+  useEffect(() => {
+    const checkKey = async () => {
+      if (window.aistudio && typeof window.aistudio.hasSelectedApiKey === 'function') {
+        const hasKey = await window.aistudio.hasSelectedApiKey();
+        setIsAiActive(hasKey);
+      }
+    };
+    checkKey();
+  }, []);
+
+  const handleConnectAi = async () => {
+    if (window.aistudio && typeof window.aistudio.openSelectKey === 'function') {
+      await window.aistudio.openSelectKey();
+      setIsAiActive(true);
+      alert("AI 导师已就位！");
+    }
+  };
 
   // Load from localStorage
   useEffect(() => {
@@ -44,13 +64,6 @@ const App: React.FC = () => {
 
   const winRate = stats.total > 0 ? Math.round((stats.wins / stats.total) * 100) : 0;
 
-  const handleChartClick = (data: any) => {
-    if (data && data.activePayload && data.activePayload.length > 0) {
-      const clickedPlan = data.activePayload[0].payload;
-      setViewingHistoryPlan(clickedPlan);
-    }
-  };
-
   const calculateRR = (plan: InvestmentPlan) => {
     const isBuy = plan.side === 'BUY';
     const reward = isBuy ? plan.targetPrice - plan.entryPrice : plan.entryPrice - plan.targetPrice;
@@ -64,9 +77,19 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-[#FDF8FB] pb-24">
       {/* Header */}
       <header className="bg-white border-b border-pink-50 p-6 flex justify-between items-center sticky top-0 z-40">
-        <div>
-          <h1 className="text-2xl font-extrabold text-pink-500 tracking-tight">ZenInvest 🌸</h1>
-          <p className="text-xs text-gray-400 mt-1">每一笔交易都是一次内心的修行</p>
+        <div className="flex items-center gap-3">
+          <div>
+            <h1 className="text-2xl font-extrabold text-pink-500 tracking-tight">ZenInvest 🌸</h1>
+            <p className="text-xs text-gray-400 mt-1">每一笔交易都是一次内心的修行</p>
+          </div>
+          {!isAiActive && (
+             <button 
+              onClick={handleConnectAi}
+              className="bg-blue-100 text-blue-500 text-[10px] px-2 py-1 rounded-full font-bold animate-pulse"
+             >
+               点击激活 AI 导师
+             </button>
+          )}
         </div>
         <div className="flex items-center gap-4">
           <div className="text-right">
@@ -94,11 +117,11 @@ const App: React.FC = () => {
           <div className="bg-white p-6 rounded-3xl cute-shadow flex flex-col justify-center border border-blue-50">
             <h4 className="text-gray-400 text-sm font-medium flex justify-between items-center">
               <span>成长记录</span>
-              <span className="text-[10px] bg-blue-50 text-blue-400 px-2 py-0.5 rounded-full italic">点击趋势点查看详情</span>
+              <span className="text-[10px] bg-blue-50 text-blue-400 px-2 py-0.5 rounded-full italic">盈亏趋势曲线</span>
             </h4>
-            <div className="h-24 w-full mt-2 cursor-pointer">
+            <div className="h-24 w-full mt-2">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData} onClick={handleChartClick}>
+                <AreaChart data={chartData}>
                   <Tooltip 
                     contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
                     itemStyle={{ color: '#ec4899', fontWeight: 'bold' }}

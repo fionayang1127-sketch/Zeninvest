@@ -26,9 +26,20 @@ const ReviewModal: React.FC<ReviewModalProps> = ({ plan, onComplete, onCancel })
       status: TradeStatus.CLOSED,
     };
 
-    const aiAnalysis = await analyzeTradeReview(updatedPlan, new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' }));
-    onComplete({ ...updatedPlan, aiAnalysis });
-    setLoading(false);
+    try {
+      const aiAnalysis = await analyzeTradeReview(updatedPlan, new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' }));
+      onComplete({ ...updatedPlan, aiAnalysis });
+    } catch (err: any) {
+      if (err.message === "API_KEY_MISSING") {
+        onComplete({ ...updatedPlan, aiAnalysis: "⚠️ AI 导师提示：检测到 API Key 尚未激活。请点击页面顶部的蓝色‘激活’按钮授权后，即可在修行历程中看到完整点评。" });
+      } else if (err.message === "API_KEY_INVALID") {
+        onComplete({ ...updatedPlan, aiAnalysis: "❌ API Key 似乎已失效，请尝试重新点击顶部按钮激活。" });
+      } else {
+        onComplete({ ...updatedPlan, aiAnalysis: "导师去喝茶了，但这笔复盘已记录，稍后点评。" });
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

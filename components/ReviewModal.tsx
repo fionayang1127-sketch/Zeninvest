@@ -15,6 +15,11 @@ const ReviewModal: React.FC<ReviewModalProps> = ({ plan, onComplete, onCancel })
   const [loading, setLoading] = useState(false);
 
   const handleReview = async () => {
+    if (exitPrice === 0) {
+      alert("请输入出场价格哦~");
+      return;
+    }
+    
     setLoading(true);
     const profitAndLoss = (exitPrice - plan.entryPrice) * (plan.side === 'BUY' ? 1 : -1);
     
@@ -27,16 +32,18 @@ const ReviewModal: React.FC<ReviewModalProps> = ({ plan, onComplete, onCancel })
     };
 
     try {
-      const aiAnalysis = await analyzeTradeReview(updatedPlan, new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' }));
+      const aiAnalysis = await analyzeTradeReview(updatedPlan, new Date().toLocaleDateString());
       onComplete({ ...updatedPlan, aiAnalysis });
     } catch (err: any) {
+      let failMessage = "AI 导师暂时在休息，但这笔复盘已记录。";
+      
       if (err.message === "API_KEY_MISSING") {
-        onComplete({ ...updatedPlan, aiAnalysis: "⚠️ AI 导师提示：检测到 API Key 尚未激活。请点击页面顶部的蓝色‘激活’按钮授权后，即可在修行历程中看到完整点评。" });
-      } else if (err.message === "API_KEY_INVALID") {
-        onComplete({ ...updatedPlan, aiAnalysis: "❌ API Key 似乎已失效，请尝试重新点击顶部按钮激活。" });
+        failMessage = "⚠️ 导师离线！\n原因：Vercel 环境中找不到 API_KEY。\n\n解决办法：\n1. 在 Vercel Settings -> Environment Variables 填入 API_KEY。\n2. 点击 Deployments 菜单里的 'Create Deployment'。\n3. 等待部署变为绿色 Ready 状态再回来刷新。";
       } else {
-        onComplete({ ...updatedPlan, aiAnalysis: "导师去喝茶了，但这笔复盘已记录，稍后点评。" });
+        console.error("Review Error:", err);
       }
+      
+      onComplete({ ...updatedPlan, aiAnalysis: failMessage });
     } finally {
       setLoading(false);
     }
@@ -44,32 +51,38 @@ const ReviewModal: React.FC<ReviewModalProps> = ({ plan, onComplete, onCancel })
 
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-white w-full max-w-md p-6 rounded-3xl cute-shadow animate-in fade-in zoom-in duration-300">
-        <h2 className="text-2xl font-bold text-blue-500 mb-6 text-center">🌈 交易复盘</h2>
+      <div className="bg-white w-full max-w-md p-8 rounded-[40px] cute-shadow animate-in zoom-in duration-300">
+        <h2 className="text-2xl font-black text-blue-500 mb-6 text-center">🏁 结单复盘</h2>
         
         <div className="space-y-4">
-          <div className="p-3 bg-blue-50 rounded-2xl border border-blue-100">
-            <p className="text-sm text-blue-700">
-              <span className="font-bold">{plan.symbol}</span> 入场价: {plan.entryPrice}
-            </p>
+          <div className="bg-blue-50 p-4 rounded-3xl border border-blue-100 flex justify-between items-center">
+             <div>
+               <p className="text-[10px] text-blue-400 font-black uppercase">标的物</p>
+               <p className="font-black text-blue-800">{plan.symbol}</p>
+             </div>
+             <div className="text-right">
+               <p className="text-[10px] text-blue-400 font-black uppercase">入场价</p>
+               <p className="font-black text-blue-800">{plan.entryPrice}</p>
+             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-500">实际出场价格</label>
+            <label className="block text-xs font-black text-gray-400 uppercase mb-2 ml-1">实际离场价格</label>
             <input 
               type="number" step="any"
-              className="w-full mt-1 p-3 border-2 border-blue-100 rounded-2xl focus:outline-none focus:border-blue-300"
-              value={exitPrice}
+              autoFocus
+              className="w-full p-4 border-2 border-blue-50 rounded-2xl focus:outline-none focus:border-blue-400 transition-colors text-lg font-black"
+              value={exitPrice || ''}
               onChange={e => setExitPrice(Number(e.target.value))}
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-500">反思心得 (你的进步阶梯)</label>
+            <label className="block text-xs font-black text-gray-400 uppercase mb-2 ml-1">感悟与反思</label>
             <textarea 
-              rows={4}
-              placeholder="这笔交易是因为运气还是实力？你学到了什么？"
-              className="w-full mt-1 p-3 border-2 border-blue-100 rounded-2xl focus:outline-none focus:border-blue-300"
+              rows={3}
+              placeholder="这笔交易让你学到了什么？是运气还是纪律？"
+              className="w-full p-4 border-2 border-blue-50 rounded-2xl focus:outline-none focus:border-blue-400 transition-colors text-sm font-medium"
               value={reviewNotes}
               onChange={e => setReviewNotes(e.target.value)}
             />
@@ -79,20 +92,16 @@ const ReviewModal: React.FC<ReviewModalProps> = ({ plan, onComplete, onCancel })
             <button 
               disabled={loading}
               onClick={onCancel}
-              className="flex-1 py-3 bg-gray-50 text-gray-400 rounded-2xl font-bold"
+              className="flex-1 py-4 bg-gray-50 text-gray-400 rounded-2xl font-black active:scale-95 transition-transform"
             >
               取消
             </button>
             <button 
               disabled={loading}
               onClick={handleReview}
-              className="flex-1 py-3 bg-blue-400 text-white rounded-2xl font-bold hover:bg-blue-500 shadow-lg shadow-blue-200 relative overflow-hidden disabled:opacity-50"
+              className="flex-1 py-4 bg-gradient-to-r from-blue-400 to-blue-500 text-white rounded-2xl font-black shadow-xl shadow-blue-100 active:scale-95 transition-transform flex items-center justify-center gap-2"
             >
-              {loading ? (
-                <span className="flex items-center justify-center">
-                   AI导师点评中...
-                </span>
-              ) : "完成复盘 ✨"}
+              {loading ? "点评中..." : "保存修行 ✨"}
             </button>
           </div>
         </div>

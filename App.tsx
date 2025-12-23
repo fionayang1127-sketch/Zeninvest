@@ -157,7 +157,7 @@ const App: React.FC = () => {
   // 未登录状态展示“修行门扉”
   if (!currentUser) {
     return (
-      <div className="min-h-screen bg-[#FDF8FB] flex items-center justify-center p-6">
+      <div className="min-h-screen bg-[#FDF8FB] flex items-center justify-center p-6 text-gray-700">
         <div className="max-w-md w-full bg-white p-10 rounded-[48px] cute-shadow text-center space-y-8 animate-in zoom-in duration-500">
           <div className="space-y-2">
             <div className="w-20 h-20 bg-gradient-to-br from-pink-400 to-pink-500 rounded-3xl mx-auto flex items-center justify-center text-white text-4xl shadow-xl shadow-pink-100">🌸</div>
@@ -172,7 +172,7 @@ const App: React.FC = () => {
                 autoFocus
                 type="text"
                 placeholder="请输入你的代号 (如: 牛散小白)"
-                className="w-full p-4 bg-gray-50 border-2 border-transparent focus:border-pink-300 focus:bg-white rounded-2xl outline-none transition-all font-bold text-center"
+                className="w-full p-4 bg-gray-50 border-2 border-transparent focus:border-pink-300 focus:bg-white rounded-2xl outline-none transition-all font-bold text-center text-gray-600 placeholder-gray-300"
                 value={usernameInput}
                 onChange={e => setUsernameInput(e.target.value)}
               />
@@ -181,7 +181,7 @@ const App: React.FC = () => {
               type="submit"
               className="w-full py-4 bg-pink-400 hover:bg-pink-500 text-white font-black rounded-2xl shadow-lg shadow-pink-100 transition-all transform active:scale-95"
             >
-              进入禅定状态 🚀
+              进入禅定状态
             </button>
           </form>
           

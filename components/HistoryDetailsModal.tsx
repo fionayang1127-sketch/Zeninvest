@@ -10,16 +10,9 @@ interface HistoryDetailsModalProps {
 const HistoryDetailsModal: React.FC<HistoryDetailsModalProps> = ({ plan, onClose }) => {
   const plPct = (((plan.profitAndLoss || 0) / plan.entryPrice) * 100).toFixed(2);
   
-  const calculatePlannedRR = () => {
-    const isBuy = plan.side === 'BUY';
-    const reward = isBuy ? plan.targetPrice - plan.entryPrice : plan.entryPrice - plan.targetPrice;
-    const risk = isBuy ? plan.entryPrice - plan.stopLoss : plan.stopLoss - plan.entryPrice;
-    return risk > 0 ? (reward / risk).toFixed(2) : '∞';
-  };
-
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-      <div className="bg-white w-full max-w-md p-8 rounded-[40px] cute-shadow relative overflow-hidden">
+      <div className="bg-white w-full max-w-md p-8 rounded-[40px] cute-shadow relative overflow-hidden max-h-[90vh] overflow-y-auto">
         <div className="absolute top-0 right-0 p-6">
           <button onClick={onClose} className="text-gray-300 hover:text-pink-400 transition-colors">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -62,6 +55,18 @@ const HistoryDetailsModal: React.FC<HistoryDetailsModalProps> = ({ plan, onClose
               {plan.reviewNotes}
             </p>
           </div>
+
+          {/* Fix: Display the AI analysis section if it exists */}
+          {plan.aiAnalysis && (
+            <div className="bg-blue-50 p-6 rounded-[32px] border border-blue-100 shadow-sm animate-in slide-in-from-bottom-2 duration-500">
+              <p className="text-[10px] font-black text-blue-400 mb-2 uppercase flex items-center gap-1">
+                <span>🧘</span> 禅师的教诲
+              </p>
+              <p className="text-sm text-blue-700 leading-relaxed font-medium italic">
+                “{plan.aiAnalysis}”
+              </p>
+            </div>
+          )}
 
           <button 
             onClick={onClose}

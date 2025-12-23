@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { InvestmentPlan, TradeStatus } from '../types';
+import { analyzeTrade } from '../services/geminiService';
 
 interface ReviewModalProps {
   plan: InvestmentPlan;
@@ -11,8 +12,10 @@ interface ReviewModalProps {
 const ReviewModal: React.FC<ReviewModalProps> = ({ plan, onComplete, onCancel }) => {
   const [exitPrice, setExitPrice] = useState(0);
   const [reviewNotes, setReviewNotes] = useState('');
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  const handleReview = () => {
+  // Fix: Handle the trade completion with an asynchronous call to Gemini for analysis
+  const handleReview = async () => {
     if (exitPrice === 0) {
       alert("请输入出场价格哦~");
       return;
@@ -22,17 +25,27 @@ const ReviewModal: React.FC<ReviewModalProps> = ({ plan, onComplete, onCancel })
       return;
     }
     
-    const profitAndLoss = (exitPrice - plan.entryPrice) * (plan.side === 'BUY' ? 1 : -1);
-    
-    const updatedPlan: InvestmentPlan = {
-      ...plan,
-      exitPrice,
-      profitAndLoss,
-      reviewNotes,
-      status: TradeStatus.CLOSED,
-    };
+    setIsAnalyzing(true);
+    try {
+      const profitAndLoss = (exitPrice - plan.entryPrice) * (plan.side === 'BUY' ? 1 : -1);
+      
+      const updatedPlan: InvestmentPlan = {
+        ...plan,
+        exitPrice,
+        profitAndLoss,
+        reviewNotes,
+        status: TradeStatus.CLOSED,
+      };
 
-    onComplete(updatedPlan);
+      // Call Gemini for automated trade review
+      const aiAnalysis = await analyzeTrade(updatedPlan);
+      onComplete({ ...updatedPlan, aiAnalysis });
+    } catch (error) {
+      console.error("Review error:", error);
+      alert("结单过程中出现了一点小插曲。");
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   return (
@@ -57,7 +70,8 @@ const ReviewModal: React.FC<ReviewModalProps> = ({ plan, onComplete, onCancel })
             <input 
               type="number" step="any"
               autoFocus
-              className="w-full p-4 border-2 border-blue-50 rounded-2xl focus:outline-none focus:border-blue-400 transition-colors text-lg font-black"
+              disabled={isAnalyzing}
+              className="w-full p-4 border-2 border-blue-50 rounded-2xl focus:outline-none focus:border-blue-400 transition-colors text-lg font-black disabled:opacity-50"
               value={exitPrice || ''}
               onChange={e => setExitPrice(Number(e.target.value))}
             />
@@ -67,8 +81,9 @@ const ReviewModal: React.FC<ReviewModalProps> = ({ plan, onComplete, onCancel })
             <label className="block text-xs font-black text-gray-400 uppercase mb-2 ml-1">总结与反思 (必填)</label>
             <textarea 
               rows={4}
+              disabled={isAnalyzing}
               placeholder="这笔交易是否按计划执行了？入场理由还在吗？最大的教训是什么？"
-              className="w-full p-4 border-2 border-blue-50 rounded-2xl focus:outline-none focus:border-blue-400 transition-colors text-sm font-medium"
+              className="w-full p-4 border-2 border-blue-50 rounded-2xl focus:outline-none focus:border-blue-400 transition-colors text-sm font-medium disabled:opacity-50"
               value={reviewNotes}
               onChange={e => setReviewNotes(e.target.value)}
             />
@@ -77,15 +92,24 @@ const ReviewModal: React.FC<ReviewModalProps> = ({ plan, onComplete, onCancel })
           <div className="flex gap-4 pt-4">
             <button 
               onClick={onCancel}
-              className="flex-1 py-4 bg-gray-50 text-gray-400 rounded-2xl font-black active:scale-95 transition-transform"
+              disabled={isAnalyzing}
+              className="flex-1 py-4 bg-gray-50 text-gray-400 rounded-2xl font-black active:scale-95 transition-transform disabled:opacity-50"
             >
               取消
             </button>
             <button 
               onClick={handleReview}
-              className="flex-1 py-4 bg-gradient-to-r from-blue-400 to-blue-500 text-white rounded-2xl font-black shadow-xl shadow-blue-100 active:scale-95 transition-transform flex items-center justify-center gap-2"
+              disabled={isAnalyzing}
+              className="flex-1 py-4 bg-gradient-to-r from-blue-400 to-blue-500 text-white rounded-2xl font-black shadow-xl shadow-blue-100 active:scale-95 transition-transform flex items-center justify-center gap-2 disabled:opacity-80"
             >
-              保存修行记录 ✨
+              {isAnalyzing ? (
+                <>
+                  <span className="animate-spin text-xl">🧘</span>
+                  正在请教禅师...
+                </>
+              ) : (
+                "保存修行记录 ✨"
+              )}
             </button>
           </div>
         </div>

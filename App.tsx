@@ -1,10 +1,10 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { InvestmentPlan, TradeStatus } from './types';
 import PlanForm from './components/PlanForm';
 import ReviewModal from './components/ReviewModal';
 import HistoryDetailsModal from './components/HistoryDetailsModal';
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
 const App: React.FC = () => {
   const [plans, setPlans] = useState<InvestmentPlan[]>([]);
@@ -32,8 +32,30 @@ const App: React.FC = () => {
     setReviewingPlan(null);
   };
 
+  const deletePlan = (id: string) => {
+    if (window.confirm('确定要删除这笔修行记录吗？数据删除后无法恢复哦。')) {
+      setPlans(plans.filter(p => p.id !== id));
+    }
+  };
+
   const closedPlans = plans.filter(p => p.status === TradeStatus.CLOSED);
-  const chartData = [...closedPlans].reverse();
+  
+  // Fix: Added useMemo to the React imports to resolve the compilation error
+  // 计算权益曲线：将单笔盈亏累加
+  const chartData = useMemo(() => {
+    let cumulative = 0;
+    const sorted = [...closedPlans].sort((a, b) => a.createdAt - b.createdAt);
+    // 增加一个起点 0
+    const data = [{ displayDate: '起点', cumulative: 0 }];
+    sorted.forEach(p => {
+      cumulative += (p.profitAndLoss || 0);
+      data.push({
+        displayDate: new Date(p.createdAt).toLocaleDateString(),
+        cumulative: Number(cumulative.toFixed(2))
+      });
+    });
+    return data;
+  }, [closedPlans]);
 
   const stats = {
     total: closedPlans.length,
@@ -89,25 +111,44 @@ const App: React.FC = () => {
             <h3 className="text-5xl font-black mt-2 tracking-tighter">¥ {stats.totalPL.toFixed(2)}</h3>
           </div>
           
-          <div className="bg-white p-6 rounded-[40px] cute-shadow flex flex-col justify-center border border-pink-50/50">
-            <div className="h-32 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData}>
-                  <defs>
-                    <linearGradient id="colorPl" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#AEC6CF" stopOpacity={0.4}/>
-                      <stop offset="95%" stopColor="#AEC6CF" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <Tooltip 
-                    contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', padding: '12px' }}
-                    itemStyle={{ color: '#ec4899', fontWeight: '900' }}
-                    labelStyle={{ display: 'none' }}
-                  />
-                  <Area type="monotone" dataKey="profitAndLoss" stroke="#AEC6CF" fillOpacity={1} fill="url(#colorPl)" strokeWidth={4} activeDot={{ r: 8, fill: '#ec4899', stroke: '#fff', strokeWidth: 3 }} />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
+          <div className="bg-white p-4 rounded-[40px] cute-shadow flex flex-col justify-center border border-pink-50/50 min-h-[160px]">
+            {chartData.length > 1 ? (
+              <div className="h-32 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="colorCum" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#AEC6CF" stopOpacity={0.6}/>
+                        <stop offset="95%" stopColor="#AEC6CF" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                    <XAxis dataKey="displayDate" hide />
+                    <YAxis hide domain={['auto', 'auto']} />
+                    <Tooltip 
+                      contentStyle={{ borderRadius: '15px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', fontSize: '12px' }}
+                      itemStyle={{ color: '#ec4899', fontWeight: 'bold' }}
+                      labelStyle={{ color: '#999', marginBottom: '4px' }}
+                      formatter={(value: number) => [`¥${value}`, '累计盈亏']}
+                    />
+                    <Area 
+                      type="monotone" 
+                      dataKey="cumulative" 
+                      stroke="#AEC6CF" 
+                      fillOpacity={1} 
+                      fill="url(#colorCum)" 
+                      strokeWidth={3} 
+                      animationDuration={1000}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center text-gray-300 h-full">
+                <span className="text-3xl mb-1">📈</span>
+                <p className="text-[10px] font-black uppercase tracking-widest">权益曲线加载中</p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -117,7 +158,7 @@ const App: React.FC = () => {
           <div className="flex-1">
             <p className="text-[10px] text-blue-400 font-black uppercase tracking-widest mb-1">牛散修行心法</p>
             <p className="text-sm text-gray-500 leading-relaxed font-medium">
-              “投资不需要非凡的智慧，只需要非凡的纪律。你的复盘是通往财富自由的唯一阶梯。”
+              “图表记录的是金钱的起伏，而复盘记录的是心灵的成长。每一笔亏损都是交予市场的学费。”
             </p>
           </div>
         </div>
@@ -140,7 +181,7 @@ const App: React.FC = () => {
             {plans.filter(p => p.status !== TradeStatus.CLOSED).map(plan => {
               const { rr, rewardPct } = calculateRR(plan);
               return (
-                <div key={plan.id} className="bg-white p-6 rounded-[32px] cute-shadow border border-gray-50 flex flex-col sm:flex-row justify-between items-center gap-4 border-l-[12px] border-l-blue-200 hover:scale-[1.01] transition-transform">
+                <div key={plan.id} className="bg-white p-6 rounded-[32px] cute-shadow border border-gray-50 flex flex-col sm:flex-row justify-between items-center gap-4 border-l-[12px] border-l-blue-200 hover:scale-[1.01] transition-transform relative group">
                   <div className="flex-1 text-center sm:text-left">
                     <div className="flex items-center justify-center sm:justify-start gap-2 mb-2">
                       <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black ${plan.side === 'BUY' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
@@ -153,12 +194,23 @@ const App: React.FC = () => {
                       <span>预期盈亏比: <b className="text-pink-400">1:{rr}</b></span>
                     </div>
                   </div>
-                  <button 
-                    onClick={() => setReviewingPlan(plan)}
-                    className="w-full sm:w-auto bg-gradient-to-r from-blue-400 to-blue-500 text-white px-10 py-3 rounded-2xl text-sm font-black hover:shadow-lg hover:shadow-blue-100 transition-all active:scale-95"
-                  >
-                    结单复盘
-                  </button>
+                  <div className="flex items-center gap-3 w-full sm:w-auto">
+                    <button 
+                      onClick={() => setReviewingPlan(plan)}
+                      className="flex-1 sm:flex-none bg-gradient-to-r from-blue-400 to-blue-500 text-white px-10 py-3 rounded-2xl text-sm font-black hover:shadow-lg hover:shadow-blue-100 transition-all active:scale-95"
+                    >
+                      结单复盘
+                    </button>
+                    <button 
+                      onClick={() => deletePlan(plan.id)}
+                      className="w-12 h-12 rounded-2xl bg-gray-50 text-gray-300 hover:text-red-400 hover:bg-red-50 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100"
+                      title="取消计划"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
               );
             })}
@@ -177,7 +229,17 @@ const App: React.FC = () => {
               const isWin = profitValue >= 0;
               return (
                 <div key={plan.id} className="bg-white p-8 rounded-[40px] border border-gray-50 cute-shadow/20 relative group transition-all hover:bg-pink-50/10">
-                  <div className="flex justify-between items-start mb-6">
+                  {/* Delete Button for History */}
+                  <button 
+                    onClick={() => deletePlan(plan.id)}
+                    className="absolute top-6 right-6 p-2 text-gray-200 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+
+                  <div className="flex justify-between items-start mb-6 pr-8">
                     <div>
                       <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{new Date(plan.createdAt).toLocaleDateString()}</p>
                       <h3 className="font-black text-2xl text-gray-800 mt-1">{plan.symbol}</h3>
@@ -215,6 +277,12 @@ const App: React.FC = () => {
                 </div>
               );
             })}
+            
+            {closedPlans.length === 0 && (
+              <div className="text-center py-12 text-gray-300 font-bold italic">
+                暂时没有已结单的记录，等待你的第一次修行成果...
+              </div>
+            )}
           </div>
         </section>
       </main>

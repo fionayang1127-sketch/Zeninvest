@@ -40,7 +40,6 @@ const App: React.FC = () => {
 
   const closedPlans = plans.filter(p => p.status === TradeStatus.CLOSED);
   
-  // Fix: Added useMemo to the React imports to resolve the compilation error
   // 计算权益曲线：将单笔盈亏累加
   const chartData = useMemo(() => {
     let cumulative = 0;
@@ -190,8 +189,9 @@ const App: React.FC = () => {
                       <h3 className="font-black text-xl text-gray-800 tracking-tight">{plan.symbol}</h3>
                     </div>
                     <div className="flex justify-center sm:justify-start gap-4 text-xs font-black text-gray-400 uppercase tracking-tighter">
-                      <span>入场价: <b className="text-gray-700">{plan.entryPrice}</b></span>
-                      <span>预期盈亏比: <b className="text-pink-400">1:{rr}</b></span>
+                      <span>入场: <b className="text-gray-700">{plan.entryPrice}</b></span>
+                      <span>仓位: <b className="text-blue-500">{plan.positionSize}</b></span>
+                      <span>盈亏比: <b className="text-pink-400">1:{rr}</b></span>
                     </div>
                   </div>
                   <div className="flex items-center gap-3 w-full sm:w-auto">

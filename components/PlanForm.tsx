@@ -90,28 +90,42 @@ const PlanForm: React.FC<PlanFormProps> = ({ onSave, onCancel }) => {
         </div>
       </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-500">投资策略</label>
-        <select 
-          className="w-full mt-1 p-2 border-2 border-blue-100 rounded-xl focus:outline-none focus:border-blue-300"
-          value={formData.strategy}
-          onChange={e => setFormData({...formData, strategy: e.target.value})}
-        >
-          {PRESET_STRATEGIES.map(s => (
-            <option key={s} value={s}>{s}</option>
-          ))}
-        </select>
-        {formData.strategy === '其他（自定义）' && (
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-500">投资策略</label>
+          <select 
+            className="w-full mt-1 p-2 border-2 border-blue-100 rounded-xl focus:outline-none focus:border-blue-300 text-sm"
+            value={formData.strategy}
+            onChange={e => setFormData({...formData, strategy: e.target.value})}
+          >
+            {PRESET_STRATEGIES.map(s => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-500">仓位计划</label>
           <input 
             required
             type="text"
-            placeholder="请输入自定义策略名称..."
-            className="w-full mt-2 p-2 border-2 border-pink-100 rounded-xl focus:outline-none focus:border-pink-300 animate-in slide-in-from-top-1 duration-200"
-            value={customStrategy}
-            onChange={e => setCustomStrategy(e.target.value)}
+            placeholder="如: 10% 或 500股"
+            className="w-full mt-1 p-2 border-2 border-blue-100 rounded-xl focus:outline-none focus:border-blue-300 text-sm"
+            value={formData.positionSize}
+            onChange={e => setFormData({...formData, positionSize: e.target.value})}
           />
-        )}
+        </div>
       </div>
+
+      {formData.strategy === '其他（自定义）' && (
+        <input 
+          required
+          type="text"
+          placeholder="请输入自定义策略名称..."
+          className="w-full mt-1 p-2 border-2 border-pink-100 rounded-xl focus:outline-none focus:border-pink-300 animate-in slide-in-from-top-1 duration-200"
+          value={customStrategy}
+          onChange={e => setCustomStrategy(e.target.value)}
+        />
+      )}
 
       <div className="grid grid-cols-3 gap-4">
         <div>

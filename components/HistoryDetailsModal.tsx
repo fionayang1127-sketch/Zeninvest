@@ -41,6 +41,21 @@ const HistoryDetailsModal: React.FC<HistoryDetailsModalProps> = ({ plan, onClose
             </div>
           </div>
 
+          <div className="grid grid-cols-3 gap-2">
+            <div className="bg-gray-50 p-3 rounded-2xl text-center">
+              <p className="text-[8px] text-gray-400 uppercase font-bold">策略</p>
+              <p className="text-xs font-black text-gray-700">{plan.strategy}</p>
+            </div>
+            <div className="bg-gray-50 p-3 rounded-2xl text-center">
+              <p className="text-[8px] text-gray-400 uppercase font-bold">仓位</p>
+              <p className="text-xs font-black text-blue-500">{plan.positionSize}</p>
+            </div>
+            <div className="bg-gray-50 p-3 rounded-2xl text-center">
+              <p className="text-[8px] text-gray-400 uppercase font-bold">方向</p>
+              <p className={`text-xs font-black ${plan.side === 'BUY' ? 'text-green-500' : 'text-red-500'}`}>{plan.side === 'BUY' ? '做多' : '做空'}</p>
+            </div>
+          </div>
+
           <div className={`p-6 rounded-[32px] text-center border-2 ${ (plan.profitAndLoss || 0) >= 0 ? 'bg-green-50 text-green-600 border-green-100' : 'bg-red-50 text-red-500 border-red-100'}`}>
             <p className="text-[10px] opacity-70 font-black uppercase tracking-widest mb-1">最终损益状况</p>
             <p className="text-4xl font-black">¥ {(plan.profitAndLoss || 0).toFixed(2)}</p>
@@ -56,7 +71,6 @@ const HistoryDetailsModal: React.FC<HistoryDetailsModalProps> = ({ plan, onClose
             </p>
           </div>
 
-          {/* Fix: Display the AI analysis section if it exists */}
           {plan.aiAnalysis && (
             <div className="bg-blue-50 p-6 rounded-[32px] border border-blue-100 shadow-sm animate-in slide-in-from-bottom-2 duration-500">
               <p className="text-[10px] font-black text-blue-400 mb-2 uppercase flex items-center gap-1">

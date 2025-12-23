@@ -12,49 +12,54 @@ const App: React.FC = () => {
   const [reviewingPlan, setReviewingPlan] = useState<InvestmentPlan | null>(null);
   const [viewingHistoryPlan, setViewingHistoryPlan] = useState<InvestmentPlan | null>(null);
   
-  // 核心修复：初始状态检查环境变量，如果不存在则设为 false 触发按钮显示
+  // 核心逻辑：初始状态就尝试读取环境变量
   const [isAiActive, setIsAiActive] = useState<boolean>(() => {
     return !!(typeof process !== 'undefined' && process.env.API_KEY);
   });
 
-  // 检查 API Key 状态（针对 aistudio 环境）
+  const checkKeyStatus = async () => {
+    // 再次确认环境
+    const envKey = typeof process !== 'undefined' ? process.env.API_KEY : undefined;
+    if (envKey) {
+      setIsAiActive(true);
+      return;
+    }
+
+    // 检查 AI Studio 环境
+    if (window.aistudio && typeof window.aistudio.hasSelectedApiKey === 'function') {
+      const hasKey = await window.aistudio.hasSelectedApiKey();
+      setIsAiActive(hasKey);
+    }
+  };
+
   useEffect(() => {
-    const checkKey = async () => {
-      if (window.aistudio && typeof window.aistudio.hasSelectedApiKey === 'function') {
-        const hasKey = await window.aistudio.hasSelectedApiKey();
-        // 只有当环境变量也没有，且 aistudio 也没选时，才保持 false
-        const envKey = typeof process !== 'undefined' ? process.env.API_KEY : undefined;
-        setIsAiActive(!!envKey || hasKey);
-      }
-    };
-    checkKey();
-    
-    // 定时检查，防止 aistudio 延迟加载
-    const timer = setInterval(checkKey, 2000);
-    return () => clearInterval(timer);
-  }, []);
+    checkKeyStatus();
+    // 如果还没激活，则持续轮询（应对异步加载）
+    if (!isAiActive) {
+      const timer = setInterval(checkKeyStatus, 3000);
+      return () => clearInterval(timer);
+    }
+  }, [isAiActive]);
 
   const handleConnectAi = async () => {
     if (window.aistudio && typeof window.aistudio.openSelectKey === 'function') {
       try {
         await window.aistudio.openSelectKey();
-        // 触发后立即假设成功，或者等待下次轮询
         setIsAiActive(true);
       } catch (e) {
         console.error("授权失败", e);
       }
     } else {
-      alert("当前环境不支持自动授权，请在环境变量中配置 API_KEY");
+      alert("✨ 导师贴士：\n\n你已经在 Vercel 配置了 API_KEY！请确保你已经执行了 'Redeploy'（重新部署），这样最新的代码才能读取到这把钥匙。");
     }
   };
 
-  // Load from localStorage
+  // 数据持久化
   useEffect(() => {
     const saved = localStorage.getItem('zen_invest_plans');
     if (saved) setPlans(JSON.parse(saved));
   }, []);
 
-  // Save to localStorage
   useEffect(() => {
     localStorage.setItem('zen_invest_plans', JSON.stringify(plans));
   }, [plans]);
@@ -90,155 +95,161 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#FDF8FB] pb-24">
+    <div className="min-h-screen bg-[#FDF8FB] pb-24 font-sans selection:bg-pink-100">
       {/* Header */}
-      <header className="bg-white border-b border-pink-50 p-6 flex justify-between items-center sticky top-0 z-40">
+      <header className="bg-white/80 backdrop-blur-md border-b border-pink-50 p-6 flex justify-between items-center sticky top-0 z-40">
         <div className="flex items-center gap-3">
           <div>
-            <h1 className="text-2xl font-extrabold text-pink-500 tracking-tight">ZenInvest 🌸</h1>
-            <p className="text-xs text-gray-400 mt-1">每一笔交易都是一次内心的修行</p>
+            <h1 className="text-2xl font-extrabold text-pink-500 tracking-tight flex items-center gap-2">
+              ZenInvest <span className="text-xl">🌸</span>
+            </h1>
+            <p className="text-[10px] text-gray-400 mt-0.5 font-black uppercase tracking-widest">每一笔交易都是修行</p>
           </div>
           {!isAiActive && (
              <button 
               onClick={handleConnectAi}
-              className="bg-blue-500 hover:bg-blue-600 text-white text-[12px] px-3 py-1.5 rounded-full font-bold animate-bounce shadow-lg shadow-blue-200"
+              className="bg-blue-500 hover:bg-blue-600 text-white text-[11px] px-4 py-1.5 rounded-full font-bold animate-pulse shadow-lg shadow-blue-200 transition-all"
              >
                ✨ 激活 AI 导师
              </button>
           )}
         </div>
         <div className="flex items-center gap-4">
-          <div className="text-right">
-            <p className="text-xs text-gray-400">胜率</p>
-            <p className="font-bold text-pink-500">{winRate}%</p>
+          <div className="text-right hidden sm:block">
+            <p className="text-[10px] text-gray-400 font-bold uppercase">修行胜率</p>
+            <p className="font-black text-pink-500 text-lg">{winRate}%</p>
           </div>
-          <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-500 font-bold">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center text-blue-500 font-black shadow-inner">
             {stats.total}
           </div>
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto p-4 space-y-8">
+      <main className="max-w-4xl mx-auto p-4 space-y-6">
         {/* Stats Dashboard */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="bg-gradient-to-br from-pink-400 to-pink-300 p-6 rounded-3xl text-white shadow-xl shadow-pink-100">
-            <p className="opacity-80 text-sm">累计盈亏 (Disciplined Profit)</p>
-            <h3 className="text-4xl font-black mt-1">¥ {stats.totalPL.toFixed(2)}</h3>
-            <div className="mt-4 flex gap-2">
-               <span className="bg-white/20 px-2 py-1 rounded text-xs">长期主义</span>
-               <span className="bg-white/20 px-2 py-1 rounded text-xs">知行合一</span>
+          <div className="bg-gradient-to-br from-pink-400 to-pink-300 p-8 rounded-[32px] text-white shadow-2xl shadow-pink-200 relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-4 opacity-20 text-6xl rotate-12 transition-transform group-hover:rotate-45 duration-700">📈</div>
+            <p className="opacity-80 text-xs font-bold uppercase tracking-widest">累计盈亏 (Realized P&L)</p>
+            <h3 className="text-5xl font-black mt-2">¥ {stats.totalPL.toFixed(2)}</h3>
+            <div className="mt-6 flex gap-3">
+               <span className="bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-bold">长期主义</span>
+               <span className="bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-bold">知行合一</span>
             </div>
           </div>
           
-          <div className="bg-white p-6 rounded-3xl cute-shadow flex flex-col justify-center border border-blue-50">
-            <h4 className="text-gray-400 text-sm font-medium flex justify-between items-center">
-              <span>成长记录</span>
-              <span className="text-[10px] bg-blue-50 text-blue-400 px-2 py-0.5 rounded-full italic">盈亏趋势曲线</span>
+          <div className="bg-white p-6 rounded-[32px] cute-shadow flex flex-col justify-center border border-pink-50/50">
+            <h4 className="text-gray-400 text-xs font-black uppercase tracking-widest flex justify-between items-center mb-4">
+              <span>心路曲线</span>
+              <span className="text-[10px] bg-blue-50 text-blue-400 px-3 py-1 rounded-full italic font-bold">EQUITY</span>
             </h4>
-            <div className="h-24 w-full mt-2">
+            <div className="h-32 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={chartData}>
+                  <defs>
+                    <linearGradient id="colorPl" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#AEC6CF" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#AEC6CF" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
                   <Tooltip 
-                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
-                    itemStyle={{ color: '#ec4899', fontWeight: 'bold' }}
+                    contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', padding: '12px' }}
+                    itemStyle={{ color: '#ec4899', fontWeight: '900' }}
                     labelStyle={{ display: 'none' }}
                   />
-                  <Area type="monotone" dataKey="profitAndLoss" stroke="#AEC6CF" fill="#E0F2F7" strokeWidth={3} activeDot={{ r: 6, fill: '#ec4899' }} />
+                  <Area type="monotone" dataKey="profitAndLoss" stroke="#AEC6CF" fillOpacity={1} fill="url(#colorPl)" strokeWidth={4} activeDot={{ r: 8, fill: '#ec4899', stroke: '#fff', strokeWidth: 3 }} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
           </div>
         </div>
 
-        {/* AI Key Missing Alert */}
+        {/* AI Key Missing Alert - Only show if truly missing */}
         {!isAiActive && (
-          <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100 flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <span className="text-xl">⚠️</span>
-              <p className="text-xs text-amber-700 font-medium">
-                检测到 AI 导师未激活，复盘功能暂时受限。请点击右侧按钮。
-              </p>
+          <div className="bg-amber-50 p-5 rounded-[24px] border border-amber-100 flex flex-col sm:flex-row items-center justify-between gap-4 animate-in fade-in">
+            <div className="flex items-center gap-4 text-center sm:text-left">
+              <span className="text-3xl">🧩</span>
+              <div>
+                <p className="text-sm text-amber-800 font-bold">AI 导师尚未就位</p>
+                <p className="text-[11px] text-amber-600 mt-1 leading-relaxed">
+                  检测到钥匙尚未通电。配置好环境变量后，请记得点击 Vercel 的 <b>Redeploy</b> 按钮。
+                </p>
+              </div>
             </div>
             <button 
               onClick={handleConnectAi}
-              className="whitespace-nowrap bg-amber-500 text-white text-xs px-4 py-2 rounded-xl font-bold shadow-sm"
+              className="whitespace-nowrap bg-amber-500 hover:bg-amber-600 text-white text-xs px-6 py-2.5 rounded-2xl font-black shadow-lg shadow-amber-200 transition-all active:scale-95"
             >
-              立即激活
+              了解如何激活
             </button>
           </div>
         )}
 
         {/* Investment Rules Reminder */}
-        <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 flex items-start gap-3">
-          <span className="text-xl">💡</span>
-          <p className="text-sm text-blue-600 leading-relaxed">
-            <b>今日心法：</b> 恐惧源于未知，贪婪源于无知。严格遵守止损计划是保护账户安全的唯一护身符。
-          </p>
+        <div className="bg-white p-5 rounded-[24px] border border-blue-50 shadow-sm flex items-start gap-4 hover:border-pink-100 transition-colors">
+          <div className="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center flex-shrink-0 text-xl">🧘‍♂️</div>
+          <div>
+            <p className="text-[10px] text-blue-400 font-black uppercase tracking-widest mb-1">牛散心法</p>
+            <p className="text-sm text-gray-600 leading-relaxed font-medium">
+              恐惧源于未知，贪婪源于无知。严格遵守止损计划是保护账户安全的唯一护身符。
+            </p>
+          </div>
         </div>
 
         {/* Trade List Sections */}
-        <section>
-          <div className="flex justify-between items-center mb-4">
-            <div className="flex items-center gap-2">
-              <h2 className="text-xl font-bold text-gray-700">当前计划</h2>
-              <span className="bg-pink-100 text-pink-500 text-xs px-2 py-0.5 rounded-full font-bold">
-                {plans.filter(p => p.status !== TradeStatus.CLOSED).length}
+        <section className="pt-4">
+          <div className="flex justify-between items-center mb-6 px-2">
+            <div className="flex items-center gap-3">
+              <h2 className="text-xl font-black text-gray-800 tracking-tight">进行中的修行</h2>
+              <span className="bg-pink-100 text-pink-500 text-[11px] px-3 py-1 rounded-full font-black">
+                {plans.filter(p => p.status !== TradeStatus.CLOSED).length} ACTIVE
               </span>
             </div>
-            <button 
-              onClick={() => setShowForm(true)}
-              className="bg-pink-400 hover:bg-pink-500 text-white px-6 py-2 rounded-2xl font-bold transition-all transform active:scale-95 shadow-md shadow-pink-100 flex items-center gap-2"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-              </svg>
-              新计划
-            </button>
           </div>
           
           <div className="space-y-4">
             {plans.filter(p => p.status !== TradeStatus.CLOSED).length === 0 && (
-              <div className="text-center py-16 bg-white rounded-3xl border-2 border-dashed border-pink-100 flex flex-col items-center gap-4">
-                <div className="text-4xl">🌱</div>
-                <div className="text-gray-400">
-                  <p>当前没有作战计划</p>
-                  <p className="text-xs">冷静观察，等待属于你的出手机会</p>
+              <div className="text-center py-20 bg-white rounded-[40px] border-2 border-dashed border-pink-100 flex flex-col items-center gap-6">
+                <div className="text-6xl animate-bounce">🌱</div>
+                <div className="space-y-2">
+                  <p className="text-lg font-black text-gray-700">虚位以待</p>
+                  <p className="text-xs text-gray-400 max-w-[200px] mx-auto leading-relaxed">冷静观察，等待属于你的出出手，不要为了交易而交易。</p>
                 </div>
                 <button 
                   onClick={() => setShowForm(true)}
-                  className="bg-blue-400 text-white px-8 py-3 rounded-2xl font-bold hover:bg-blue-500 transition-all shadow-lg shadow-blue-100"
+                  className="bg-blue-500 text-white px-10 py-4 rounded-[20px] font-black hover:bg-blue-600 transition-all shadow-xl shadow-blue-100 active:scale-95"
                 >
-                  开启第一笔修行计划
+                  开启第一笔计划
                 </button>
               </div>
             )}
             {plans.filter(p => p.status !== TradeStatus.CLOSED).map(plan => {
               const { rr, rewardPct } = calculateRR(plan);
               return (
-                <div key={plan.id} className="bg-white p-5 rounded-3xl cute-shadow border-l-8 border-pink-300 flex justify-between items-center group hover:bg-pink-50/30 transition-all">
+                <div key={plan.id} className="bg-white p-6 rounded-[32px] cute-shadow border border-gray-50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 group hover:bg-pink-50/20 transition-all border-l-[12px] border-l-pink-400">
                   <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${plan.side === 'BUY' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
-                        {plan.side === 'BUY' ? '做多' : '做空'}
+                    <div className="flex items-center gap-3 mb-2">
+                      <span className={`px-3 py-1 rounded-full text-[10px] font-black tracking-widest ${plan.side === 'BUY' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+                        {plan.side === 'BUY' ? 'LONG' : 'SHORT'}
                       </span>
-                      <h3 className="font-black text-gray-700">{plan.symbol}</h3>
-                      <span className="bg-blue-50 text-blue-500 text-[10px] px-2 py-0.5 rounded-full font-bold">
-                        赔率 1:{rr}
-                      </span>
+                      <h3 className="font-black text-xl text-gray-800">{plan.symbol}</h3>
+                      <div className="flex items-center gap-1 bg-blue-50 text-blue-500 text-[10px] px-3 py-1 rounded-full font-black">
+                        <span>ODDS</span>
+                        <span>1:{rr}</span>
+                      </div>
                     </div>
-                    <div className="mt-2 flex gap-4 text-xs text-gray-500">
-                      <span>买入: <b className="text-gray-800">{plan.entryPrice}</b></span>
-                      <span>止损: <b className="text-red-400">{plan.stopLoss}</b></span>
-                      <span>目标: <b className="text-green-500">{plan.targetPrice}</b> (+{rewardPct}%)</span>
+                    <div className="flex flex-wrap gap-x-6 gap-y-2 text-xs font-bold">
+                      <div className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-gray-300"></span><span className="text-gray-400">ENTRY</span> <span className="text-gray-700">{plan.entryPrice}</span></div>
+                      <div className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-red-400"></span><span className="text-gray-400">STOP</span> <span className="text-red-400">{plan.stopLoss}</span></div>
+                      <div className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-green-400"></span><span className="text-gray-400">TARGET</span> <span className="text-green-500">{plan.targetPrice}</span> <span className="text-[10px] text-green-300">(+{rewardPct}%)</span></div>
                     </div>
-                    <p className="text-xs text-gray-400 mt-2 line-clamp-1 italic">“{plan.reasoning}”</p>
                   </div>
-                  <div className="ml-4">
+                  <div className="w-full sm:w-auto">
                      <button 
                       onClick={() => setReviewingPlan(plan)}
-                      className="bg-blue-400 text-white px-5 py-2 rounded-xl text-sm font-bold hover:bg-blue-500 transition-all shadow-md shadow-blue-50"
+                      className="w-full bg-blue-500 text-white px-8 py-3 rounded-[18px] text-sm font-black hover:bg-blue-600 transition-all shadow-lg shadow-blue-100 active:scale-95"
                     >
-                      结束并复盘
+                      结单复盘
                     </button>
                   </div>
                 </div>
@@ -247,62 +258,68 @@ const App: React.FC = () => {
           </div>
         </section>
 
-        <section>
-          <h2 className="text-xl font-bold text-gray-700 mb-4 flex items-center gap-2">
+        <section className="pt-8 pb-12">
+          <h2 className="text-xl font-black text-gray-800 mb-6 flex items-center gap-3 px-2">
             <span>修行历程</span>
-            <span className="text-xs font-normal text-gray-400">(历史记录)</span>
+            <div className="h-px flex-1 bg-gray-100"></div>
           </h2>
-          <div className="space-y-4">
+          <div className="space-y-6">
             {closedPlans.length === 0 && (
-              <p className="text-center text-gray-300 py-8">暂无已结单，等待结果落定...</p>
+              <p className="text-center text-gray-300 py-12 font-medium italic">暂无历史，等待第一枚勋章...</p>
             )}
             {closedPlans.map(plan => {
-              const plPct = (( (plan.profitAndLoss || 0) / (plan.entryPrice) ) * 100).toFixed(2);
+              const profitValue = plan.profitAndLoss || 0;
+              const plPct = (( profitValue / (plan.entryPrice) ) * 100).toFixed(2);
+              const isWin = profitValue >= 0;
               return (
-                <div key={plan.id} className="bg-white p-6 rounded-3xl border border-gray-50 cute-shadow/20 overflow-hidden group hover:border-pink-100 transition-colors">
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <span className="text-gray-400 text-[10px] font-mono uppercase bg-gray-50 px-2 py-0.5 rounded-full mb-1 inline-block">
+                <div key={plan.id} className="bg-white p-8 rounded-[40px] border border-gray-50 cute-shadow/30 overflow-hidden relative group transition-all hover:border-pink-200">
+                  <div className={`absolute top-0 right-0 p-4 font-black text-[80px] leading-none opacity-[0.03] select-none ${isWin ? 'text-green-500' : 'text-red-500'}`}>
+                    {isWin ? 'WIN' : 'LOSS'}
+                  </div>
+                  
+                  <div className="flex flex-col sm:flex-row justify-between items-start mb-6 relative z-10">
+                    <div className="mb-4 sm:mb-0">
+                      <span className="text-gray-400 text-[10px] font-black uppercase bg-gray-50 px-3 py-1 rounded-full mb-3 inline-block tracking-widest">
                         {new Date(plan.createdAt).toLocaleDateString()}
                       </span>
-                      <h3 className="font-black text-lg text-gray-700">
-                        {plan.symbol} <span className="text-xs font-normal text-gray-400">({plan.side === 'BUY' ? '做多' : '做空'})</span>
+                      <h3 className="font-black text-2xl text-gray-800 flex items-center gap-2">
+                        {plan.symbol} <span className="text-xs font-bold text-gray-400 px-2 py-0.5 border border-gray-100 rounded-lg">{plan.side === 'BUY' ? '做多' : '做空'}</span>
                       </h3>
                     </div>
-                    <div className="text-right">
-                      <div className={`text-2xl font-black ${ (plan.profitAndLoss || 0) >= 0 ? 'text-green-500' : 'text-red-400'}`}>
-                        {(plan.profitAndLoss || 0) >= 0 ? '+' : ''}¥{(plan.profitAndLoss || 0).toFixed(2)}
+                    <div className="text-left sm:text-right">
+                      <div className={`text-3xl font-black ${ isWin ? 'text-green-500' : 'text-red-400'}`}>
+                        {isWin ? '+' : ''}¥{profitValue.toFixed(2)}
                       </div>
-                      <div className={`text-xs font-bold ${ (plan.profitAndLoss || 0) >= 0 ? 'text-green-400' : 'text-red-300'}`}>
+                      <div className={`text-sm font-black mt-1 px-3 py-0.5 rounded-full inline-block ${ isWin ? 'bg-green-50 text-green-500' : 'bg-red-50 text-red-400'}`}>
                         {plPct}%
                       </div>
                     </div>
                   </div>
                   
-                  <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 group-hover:bg-blue-50/30 transition-colors">
-                    <div className="flex items-center gap-1 mb-2">
-                      <span className="text-sm">🤖</span>
-                      <p className="text-xs font-bold text-blue-400">AI 导师复盘：</p>
+                  <div className="p-6 bg-gradient-to-br from-gray-50 to-white rounded-[28px] border border-gray-100 mb-6 group-hover:from-blue-50/50 transition-all relative">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center text-xs">🤖</div>
+                      <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest">Mentor Analysis</p>
                     </div>
-                    <p className="text-sm text-gray-600 leading-relaxed italic">
-                      {plan.aiAnalysis || "分析正在生成中..."}
+                    <p className="text-sm text-gray-600 leading-relaxed italic font-medium">
+                      {plan.aiAnalysis || "导师正在赶来的路上..."}
                     </p>
                   </div>
                   
-                  <div className="mt-4 flex justify-between items-center text-[10px] text-gray-400">
-                    <div className="flex gap-3">
-                      <span>买入: <span className="text-gray-600">{plan.entryPrice}</span></span>
-                      <span>离场: <span className="text-gray-600">{plan.exitPrice}</span></span>
+                  <div className="flex flex-wrap justify-between items-center text-[10px] font-black uppercase tracking-widest text-gray-400 relative z-10">
+                    <div className="flex gap-6">
+                      <div className="flex flex-col"><span className="opacity-50 mb-0.5">Entry</span><span className="text-gray-600 text-xs">{plan.entryPrice}</span></div>
+                      <div className="flex flex-col"><span className="opacity-50 mb-0.5">Exit</span><span className="text-gray-600 text-xs">{plan.exitPrice}</span></div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <div className="px-2 py-0.5 bg-gray-100 rounded text-gray-500 italic">
-                        策略: {plan.strategy}
+                    <div className="flex items-center gap-3 mt-4 sm:mt-0">
+                      <div className="px-3 py-1 bg-gray-100 text-gray-500 rounded-full">
+                        {plan.strategy}
                       </div>
                       <button 
                         onClick={() => setViewingHistoryPlan(plan)}
-                        className="text-blue-400 hover:underline font-bold"
+                        className="text-blue-500 hover:text-pink-500 transition-colors font-black underline underline-offset-4"
                       >
-                        查看详情
+                        Details
                       </button>
                     </div>
                   </div>
@@ -315,8 +332,8 @@ const App: React.FC = () => {
 
       {/* Overlays */}
       {showForm && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-          <div className="w-full max-w-lg">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 z-50">
+          <div className="w-full max-w-lg animate-in zoom-in duration-300">
             <PlanForm onSave={addPlan} onCancel={() => setShowForm(false)} />
           </div>
         </div>
@@ -330,7 +347,6 @@ const App: React.FC = () => {
         />
       )}
 
-      {/* History Details View Modal */}
       {viewingHistoryPlan && (
         <HistoryDetailsModal 
           plan={viewingHistoryPlan} 
@@ -338,13 +354,13 @@ const App: React.FC = () => {
         />
       )}
 
-      {/* Mobile-first FAB for New Plan */}
+      {/* Mobile-first FAB */}
       <button 
         onClick={() => setShowForm(true)}
-        className="fixed bottom-8 right-8 w-16 h-16 bg-pink-500 text-white rounded-full flex items-center justify-center shadow-2xl shadow-pink-300 transform transition-transform hover:scale-110 active:scale-90 z-40 border-4 border-white"
+        className="fixed bottom-10 right-10 w-20 h-20 bg-pink-500 text-white rounded-[28px] flex items-center justify-center shadow-2xl shadow-pink-300 transform transition-all hover:scale-110 active:scale-90 z-40 border-8 border-white group"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" />
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 transition-transform group-hover:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M12 4v16m8-8H4" />
         </svg>
       </button>
     </div>

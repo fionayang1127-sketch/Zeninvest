@@ -3,15 +3,16 @@ import { GoogleGenAI } from "@google/genai";
 import { InvestmentPlan } from "../types";
 
 export async function analyzeTradeReview(plan: InvestmentPlan, currentDate: string): Promise<string> {
-  // 获取 API Key
-  const apiKey = typeof process !== 'undefined' ? process.env.API_KEY : undefined;
+  // 1. 尝试从环境变量获取
+  let apiKey = typeof process !== 'undefined' ? process.env.API_KEY : undefined;
   
+  // 2. 如果环境没有，但 AI Studio 提供了 Key
   if (!apiKey) {
-    console.warn("API_KEY is not defined in process.env");
+    console.warn("API_KEY is not defined in process.env, checking window.aistudio...");
+    // 注意：这里无法异步获取 key，必须依赖之前注入或外部环境
     throw new Error("API_KEY_MISSING");
   }
 
-  // 每次调用时创建新实例
   const ai = new GoogleGenAI({ apiKey });
 
   const prompt = `
@@ -50,10 +51,16 @@ export async function analyzeTradeReview(plan: InvestmentPlan, currentDate: stri
     return response.text || "这笔交易让我也陷入了深思，你做到了独立思考，这就是进步。";
   } catch (error: any) {
     console.error("Gemini API Error Detail:", error);
+    
+    // 如果 Key 选择错误或未找到实体
+    if (error.message?.includes("Requested entity was not found")) {
+      throw new Error("API_KEY_INVALID");
+    }
+    
     if (error.message?.includes("API_KEY_INVALID") || error.status === 403 || error.status === 401) {
       throw new Error("API_KEY_INVALID");
     }
-    // 如果是网络原因或其他，返回一个通用的鼓励话语
+    
     return "AI 导师正在复盘其他选手的单子，但这笔盈亏已经记录在案，继续保持纪律！";
   }
 }

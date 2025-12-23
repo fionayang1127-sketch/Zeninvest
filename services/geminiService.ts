@@ -1,33 +1,42 @@
 
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 import { InvestmentPlan } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
 export async function analyzeTradeReview(plan: InvestmentPlan, currentDate: string): Promise<string> {
+  // 检查 API Key 是否存在
+  const apiKey = typeof process !== 'undefined' ? process.env.API_KEY : undefined;
+  
+  if (!apiKey) {
+    console.warn("未检测到 API_KEY，请在 Vercel 环境变量中配置。");
+    return "AI 导师提示：由于未配置 API Key，暂时无法提供深度复盘。请检查应用配置。";
+  }
+
+  // 每次调用时初始化，确保获取最新的环境变量
+  const ai = new GoogleGenAI({ apiKey });
+
   const prompt = `
     你是一位经历了多轮牛熊市的顶级职业投资人（超级牛散）。请基于以下交易计划和实际结果进行深度复盘分析：
     
     【当前分析日期】: ${currentDate}
-    【交易品种】: ${plan.symbol} (${plan.side})
+    【交易品种】: ${plan.symbol} (${plan.side === 'BUY' ? '做多' : '做空'})
     【初始计划】:
     - 理由: ${plan.reasoning}
     - 入场价格: ${plan.entryPrice}
     - 止损: ${plan.stopLoss}
-    - 止盈: ${plan.targetPrice}
-    - 心理状态: ${plan.psychologicalState}
+    - 目标价: ${plan.targetPrice}
+    - 入场心态: ${plan.psychologicalState}
     
     【实际结果】:
     - 离场价格: ${plan.exitPrice}
-    - 盈亏金额: ${plan.profitAndLoss}
-    - 复盘笔记: ${plan.reviewNotes}
+    - 最终盈亏金额: ${plan.profitAndLoss}
+    - 投资者自述反思: ${plan.reviewNotes}
     
-    请结合当前时间点的宏观或周期背景（如果适用），从以下三个维度给出专业的、“扎心”但温和的建议：
-    1. 策略执行力：是否严格遵守了止损/止盈？
-    2. 心理博弈：当时的情绪是否影响了判断？
-    3. 市场洞察：下次遇到类似情况该如何优化？
+    请作为长辈给出指导：
+    1. 策略执行力评价。
+    2. 针对入场心态和反思给出建议。
+    3. 下次遇到类似情况的改进点。
     
-    字数在200字以内，语气要像一个智慧的长辈或导师。
+    要求：200字以内，语气专业且温和。
   `;
 
   try {
@@ -39,9 +48,10 @@ export async function analyzeTradeReview(plan: InvestmentPlan, currentDate: stri
         topP: 0.95,
       },
     });
-    return response.text || "暂时无法生成分析，请稍后再试。";
+    
+    return response.text || "复盘完成，但 AI 似乎陷入了沉思，没能给出具体文字。";
   } catch (error) {
     console.error("Gemini AI Analysis Error:", error);
-    return "AI 导师正在闭关，请检查网络后重试。";
+    return "AI 导师正在闭关（可能是网络或 Key 权限问题），建议稍后在‘修行历程’中查看详情。";
   }
 }

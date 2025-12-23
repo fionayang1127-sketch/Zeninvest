@@ -6,11 +6,47 @@ import ReviewModal from './components/ReviewModal';
 import HistoryDetailsModal from './components/HistoryDetailsModal';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
+const ZEN_QUOTES = [
+  "交易不是为了击败市场，而是为了在市场中生存并认识自己。",
+  "止损是投资者的护命符，没有止损的交易如同在悬崖边蒙眼奔跑。",
+  "耐心是最高级的纪律，等待合适的入场机会比匆忙进场更重要。",
+  "不要因为一次盈利而骄傲，也不要因为一次亏损而气馁，执行力才是唯一的标准。",
+  "仓位管理是牛散的护城河，永远不要让单笔交易决定你的生死。",
+  "复盘是投资修行中最枯燥但也最有价值的部分，它能帮你剔除习惯性的错误。",
+  "市场不会同情弱者，它只奖赏那些能够控制自己情绪的冷静观察者。",
+  "在贪婪时保持警惕，在恐惧时寻找价值，这是逆向思维的精髓。",
+  "规则的制定是为了执行，如果总是打破规则，那么规则只是摆设。",
+  "成功的投资者不是那些从不犯错的人，而是那些犯错后能迅速修正并学习的人。"
+];
+
+const ZEN_SUBTITLES = [
+  "不以物喜，不以己悲",
+  "守正出奇，静待时机",
+  "克服人性，尊重市场",
+  "专注复利，拥抱时间",
+  "简单交易，极致纪律",
+  "洞察本质，远离喧嚣",
+  "心如止水，手如磐石",
+  "规则至上，概率为王",
+  "独立思考，知行合一",
+  "宁静致远，稳健前行"
+];
+
 const App: React.FC = () => {
   const [plans, setPlans] = useState<InvestmentPlan[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [reviewingPlan, setReviewingPlan] = useState<InvestmentPlan | null>(null);
   const [viewingHistoryPlan, setViewingHistoryPlan] = useState<InvestmentPlan | null>(null);
+
+  // 随机选择一条心法和副标题，仅在页面加载时执行一次
+  const { currentQuote, currentSubtitle } = useMemo(() => {
+    const quoteIndex = Math.floor(Math.random() * ZEN_QUOTES.length);
+    const subtitleIndex = Math.floor(Math.random() * ZEN_SUBTITLES.length);
+    return {
+      currentQuote: ZEN_QUOTES[quoteIndex],
+      currentSubtitle: ZEN_SUBTITLES[subtitleIndex]
+    };
+  }, []);
 
   // 数据持久化
   useEffect(() => {
@@ -81,7 +117,7 @@ const App: React.FC = () => {
           <div className="bg-gradient-to-br from-pink-400 to-pink-500 w-10 h-10 rounded-2xl flex items-center justify-center text-white text-xl shadow-lg shadow-pink-100">🌸</div>
           <div>
             <h1 className="text-xl font-black text-pink-500 tracking-tight">ZenInvest</h1>
-            <p className="text-[9px] text-gray-400 font-black uppercase tracking-widest">不以物喜，不以己悲</p>
+            <p className="text-[9px] text-gray-400 font-black uppercase tracking-widest">{currentSubtitle}</p>
           </div>
         </div>
         
@@ -156,8 +192,8 @@ const App: React.FC = () => {
           <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center flex-shrink-0 text-2xl group-hover:scale-110 transition-transform shadow-inner">💡</div>
           <div className="flex-1">
             <p className="text-[10px] text-blue-400 font-black uppercase tracking-widest mb-1">牛散修行心法</p>
-            <p className="text-sm text-gray-500 leading-relaxed font-medium">
-              “图表记录的是金钱的起伏，而复盘记录的是心灵的成长。每一笔亏损都是交予市场的学费。”
+            <p className="text-sm text-gray-500 leading-relaxed font-medium italic">
+              “{currentQuote}”
             </p>
           </div>
         </div>
@@ -229,7 +265,6 @@ const App: React.FC = () => {
               const isWin = profitValue >= 0;
               return (
                 <div key={plan.id} className="bg-white p-8 rounded-[40px] border border-gray-50 cute-shadow/20 relative group transition-all hover:bg-pink-50/10">
-                  {/* Delete Button for History */}
                   <button 
                     onClick={() => deletePlan(plan.id)}
                     className="absolute top-6 right-6 p-2 text-gray-200 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
@@ -249,7 +284,6 @@ const App: React.FC = () => {
                     </div>
                   </div>
                   
-                  {/* User Self-Review Section */}
                   <div className="p-6 bg-gray-50/50 rounded-[32px] border border-gray-100 mb-6 group-hover:bg-white transition-colors">
                     <div className="flex items-center gap-2 mb-2">
                        <span className="text-xs">📜</span>

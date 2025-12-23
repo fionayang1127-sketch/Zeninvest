@@ -11,24 +11,40 @@ const App: React.FC = () => {
   const [showForm, setShowForm] = useState(false);
   const [reviewingPlan, setReviewingPlan] = useState<InvestmentPlan | null>(null);
   const [viewingHistoryPlan, setViewingHistoryPlan] = useState<InvestmentPlan | null>(null);
-  const [isAiActive, setIsAiActive] = useState(true);
+  
+  // 核心修复：初始状态检查环境变量，如果不存在则设为 false 触发按钮显示
+  const [isAiActive, setIsAiActive] = useState<boolean>(() => {
+    return !!(typeof process !== 'undefined' && process.env.API_KEY);
+  });
 
-  // 检查 API Key 状态
+  // 检查 API Key 状态（针对 aistudio 环境）
   useEffect(() => {
     const checkKey = async () => {
       if (window.aistudio && typeof window.aistudio.hasSelectedApiKey === 'function') {
         const hasKey = await window.aistudio.hasSelectedApiKey();
-        setIsAiActive(hasKey);
+        // 只有当环境变量也没有，且 aistudio 也没选时，才保持 false
+        const envKey = typeof process !== 'undefined' ? process.env.API_KEY : undefined;
+        setIsAiActive(!!envKey || hasKey);
       }
     };
     checkKey();
+    
+    // 定时检查，防止 aistudio 延迟加载
+    const timer = setInterval(checkKey, 2000);
+    return () => clearInterval(timer);
   }, []);
 
   const handleConnectAi = async () => {
     if (window.aistudio && typeof window.aistudio.openSelectKey === 'function') {
-      await window.aistudio.openSelectKey();
-      setIsAiActive(true);
-      alert("AI 导师已就位！");
+      try {
+        await window.aistudio.openSelectKey();
+        // 触发后立即假设成功，或者等待下次轮询
+        setIsAiActive(true);
+      } catch (e) {
+        console.error("授权失败", e);
+      }
+    } else {
+      alert("当前环境不支持自动授权，请在环境变量中配置 API_KEY");
     }
   };
 
@@ -85,9 +101,9 @@ const App: React.FC = () => {
           {!isAiActive && (
              <button 
               onClick={handleConnectAi}
-              className="bg-blue-100 text-blue-500 text-[10px] px-2 py-1 rounded-full font-bold animate-pulse"
+              className="bg-blue-500 hover:bg-blue-600 text-white text-[12px] px-3 py-1.5 rounded-full font-bold animate-bounce shadow-lg shadow-blue-200"
              >
-               点击激活 AI 导师
+               ✨ 激活 AI 导师
              </button>
           )}
         </div>
@@ -133,6 +149,24 @@ const App: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* AI Key Missing Alert */}
+        {!isAiActive && (
+          <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <span className="text-xl">⚠️</span>
+              <p className="text-xs text-amber-700 font-medium">
+                检测到 AI 导师未激活，复盘功能暂时受限。请点击右侧按钮。
+              </p>
+            </div>
+            <button 
+              onClick={handleConnectAi}
+              className="whitespace-nowrap bg-amber-500 text-white text-xs px-4 py-2 rounded-xl font-bold shadow-sm"
+            >
+              立即激活
+            </button>
+          </div>
+        )}
 
         {/* Investment Rules Reminder */}
         <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 flex items-start gap-3">
